@@ -83,4 +83,34 @@ impl TunInterface {
         let socket = Socket::new(Domain::IPV4, Type::DGRAM, None)?;
         perform(socket.as_raw_fd())?
     }
+
+    #[throws]
+    pub fn mtu(&self) -> i32 {
+        let mut iff = self.ifreq()?;
+        self.perform(|fd| unsafe { sys::if_get_mtu(fd, &mut iff) })?;
+        let mtu = unsafe { iff.ifr_ifru.ifru_mtu };
+
+        mtu
+    }
+
+    #[throws]
+    pub fn set_mtu(&self, mtu: i32) {
+        let mut iff = self.ifreq()?;
+        iff.ifr_ifru.ifru_mtu = mtu;
+        self.perform(|fd| unsafe { sys::if_set_mtu(fd, &iff) })?;
+    }
+}
+
+mod test {
+    use super::TunInterface;
+    use std::net::Ipv4Addr;
+
+    #[test]
+    fn mtu() {
+        let interf = TunInterface::new().unwrap();
+
+        interf.set_mtu(500).unwrap();
+
+        assert_eq!(interf.mtu().unwrap(), 500);
+    }
 }
