@@ -40,6 +40,7 @@ pub union ifr_ifru {
     pub ifru_addr: sockaddr,
     pub ifru_dstaddr: sockaddr,
     pub ifru_broadaddr: sockaddr,
+    pub ifru_netmask: sockaddr,
     pub ifru_flags: c_short,
     pub ifru_metric: c_int,
     pub ifru_mtu: c_int,
@@ -65,6 +66,8 @@ pub const SIOCSIFADDR: c_ulong = request_code_write!(b'i', 12, mem::size_of::<if
 // Copied from https://github.com/dcuddeback/ioctl-rs/blob/master/src/os/macos.rs
 pub const SIOCGIFMTU: c_ulong = 0xc0206933;
 pub const SIOCSIFMTU: c_ulong = 0x80206934;
+pub const SIOCGIFNETMASK: c_ulong = 0xc0206925;
+pub const SIOCSIFNETMASK: c_ulong = 0x80206916;
 
 #[macro_export]
 macro_rules! syscall {
@@ -81,5 +84,7 @@ pub use syscall;
 ioctl_readwrite!(resolve_ctl_info, b'N', 3, ctl_info);
 ioctl_read_bad!(if_get_addr, libc::SIOCGIFADDR, ifreq);
 ioctl_read_bad!(if_get_mtu, SIOCGIFMTU, ifreq);
+ioctl_read_bad!(if_get_netmask, SIOCGIFNETMASK, ifreq);
 ioctl_write_ptr_bad!(if_set_addr, SIOCSIFADDR, ifreq);
 ioctl_write_ptr_bad!(if_set_mtu, SIOCSIFMTU, ifreq);
+ioctl_write_ptr_bad!(if_set_netmask, SIOCSIFNETMASK, ifreq);

@@ -99,10 +99,31 @@ impl TunInterface {
         iff.ifr_ifru.ifru_mtu = mtu;
         self.perform(|fd| unsafe { sys::if_set_mtu(fd, &iff) })?;
     }
+
+    #[throws]
+    pub fn netmask(&self) -> Ipv4Addr {
+        let mut iff = self.ifreq()?;
+        self.perform(|fd| unsafe { sys::if_get_netmask(fd, &mut iff) })?;
+
+        let netmask =
+            unsafe { *(&iff.ifr_ifru.ifru_netmask as *const _ as *const sys::sockaddr_in) };
+
+        Ipv4Addr::from(u32::from_be(netmask.sin_addr.s_addr))
+    }
+
+    #[throws]
+    pub fn set_netmask(&self, addr: Ipv4Addr) {
+        let addr = SockAddr::from(SocketAddrV4::new(addr, 0));
+
+        let mut iff = self.ifreq()?;
+        iff.ifr_ifru.ifru_netmask = unsafe { *addr.as_ptr() };
+
+        self.perform(|fd| unsafe { sys::if_set_netmask(fd, &iff) })?;
+    }
 }
 
 mod test {
-    use super::TunInterface;
+    use super::*;
     use std::net::Ipv4Addr;
 
     #[test]
@@ -112,5 +133,19 @@ mod test {
         interf.set_mtu(500).unwrap();
 
         assert_eq!(interf.mtu().unwrap(), 500);
+    }
+
+    #[test]
+    #[throws]
+    fn netmask() {
+        let interf = TunInterface::new()?;
+
+        let netmask = Ipv4Addr::new(255, 0, 0, 0);
+        let addr = Ipv4Addr::new(192, 168, 1, 1);
+
+        interf.set_ipv4_addr(addr)?;
+        interf.set_netmask(netmask)?;
+
+        assert_eq!(interf.netmask()?, netmask);
     }
 }
