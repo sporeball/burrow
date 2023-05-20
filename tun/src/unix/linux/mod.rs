@@ -4,9 +4,11 @@ use socket2::{Domain, SockAddr, Socket, Type};
 use std::fs::OpenOptions;
 use std::io::Error;
 use std::mem;
-use std::net::{Ipv4Addr, SocketAddrV4};
+use std::net::{Ipv4Addr, SocketAddrV4, Ipv6Addr, SocketAddrV6};
 use std::os::fd::RawFd;
 use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd};
+
+use libc::in6_ifreq;
 
 use super::{ifname_to_string, string_to_ifname};
 
@@ -50,6 +52,13 @@ impl TunInterface {
         iff.ifr_name = string_to_ifname(&self.name()?);
         iff
     }
+    
+    #[throws]
+    fn in6_ifreq(&self) -> in6_ifreq {
+        let mut iff: in6_ifreq = unsafe { mem::zeroed() };
+        iff.ifr6_ifindex = self.index()?;
+        iff
+    }
 
     #[throws]
     pub fn index(&self) -> i32 {
@@ -61,10 +70,8 @@ impl TunInterface {
     #[throws]
     pub fn set_ipv4_addr(&self, addr: Ipv4Addr) {
         let addr = SockAddr::from(SocketAddrV4::new(addr, 0));
-
         let mut iff = self.ifreq()?;
         iff.ifr_ifru.ifru_addr = unsafe { *addr.as_ptr() };
-
         self.perform(|fd| unsafe { sys::if_set_addr(fd, &iff) })?;
     }
 
@@ -92,6 +99,21 @@ impl TunInterface {
         let addr = unsafe { *(&iff.ifr_ifru.ifru_addr as *const _ as *const sys::sockaddr_in) };
         Ipv4Addr::from(u32::from_be(addr.sin_addr.s_addr))
     }
+    
+    #[throws]
+    pub fn set_ipv6_addr(&self, addr: Ipv6Addr) {
+        let mut iff = self.in6_ifreq()?;
+        iff.ifr6_addr.s6_addr = addr.octets();
+        self.perform6(|fd| unsafe { sys::if_set_addr6(fd, &iff) })?;
+    }
+    
+    #[throws]
+    pub fn ipv6_addr(&self) -> Ipv6Addr {
+        let mut iff = self.ifreq()?;
+        self.perform6(|fd| unsafe { sys::if_get_addr(fd, &mut iff) })?;
+        let addr = unsafe { *(&iff.ifr_ifru.ifru_addr as *const _ as *const sys::sockaddr_in6) };
+        Ipv6Addr::from(addr.sin6_addr.s6_addr)
+    }
 
     #[throws]
     pub fn mtu(&self) -> i32 {
@@ -116,6 +138,12 @@ impl TunInterface {
     #[throws]
     fn perform<R>(&self, perform: impl FnOnce(RawFd) -> Result<R, nix::Error>) -> R {
         let socket = Socket::new(Domain::IPV4, Type::DGRAM, None)?;
+        perform(socket.as_raw_fd())?
+    }
+    
+    #[throws]
+    fn perform6<R>(&self, perform: impl FnOnce(RawFd) -> Result<R, nix::Error>) -> R {
+        let socket = Socket::new(Domain::IPV6, Type::DGRAM, None)?;
         perform(socket.as_raw_fd())?
     }
 }
