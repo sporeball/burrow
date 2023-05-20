@@ -4,7 +4,7 @@ use socket2::{Domain, SockAddr, Socket, Type};
 use std::fs::OpenOptions;
 use std::io::Error;
 use std::mem;
-use std::net::{Ipv4Addr, SocketAddrV4, Ipv6Addr, SocketAddrV6};
+use std::net::{Ipv4Addr, Ipv6Addr, SocketAddrV4, SocketAddrV6};
 use std::os::fd::RawFd;
 use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd};
 
@@ -52,7 +52,7 @@ impl TunInterface {
         iff.ifr_name = string_to_ifname(&self.name()?);
         iff
     }
-    
+
     #[throws]
     fn in6_ifreq(&self) -> in6_ifreq {
         let mut iff: in6_ifreq = unsafe { mem::zeroed() };
@@ -99,14 +99,14 @@ impl TunInterface {
         let addr = unsafe { *(&iff.ifr_ifru.ifru_addr as *const _ as *const sys::sockaddr_in) };
         Ipv4Addr::from(u32::from_be(addr.sin_addr.s_addr))
     }
-    
+
     #[throws]
     pub fn set_ipv6_addr(&self, addr: Ipv6Addr) {
         let mut iff = self.in6_ifreq()?;
         iff.ifr6_addr.s6_addr = addr.octets();
         self.perform6(|fd| unsafe { sys::if_set_addr6(fd, &iff) })?;
     }
-    
+
     #[throws]
     pub fn ipv6_addr(&self) -> Ipv6Addr {
         let mut iff = self.ifreq()?;
@@ -140,7 +140,7 @@ impl TunInterface {
         let socket = Socket::new(Domain::IPV4, Type::DGRAM, None)?;
         perform(socket.as_raw_fd())?
     }
-    
+
     #[throws]
     fn perform6<R>(&self, perform: impl FnOnce(RawFd) -> Result<R, nix::Error>) -> R {
         let socket = Socket::new(Domain::IPV6, Type::DGRAM, None)?;
