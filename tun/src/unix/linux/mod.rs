@@ -108,14 +108,6 @@ impl TunInterface {
     }
 
     #[throws]
-    pub fn ipv6_addr(&self) -> Ipv6Addr {
-        let mut iff = self.ifreq()?;
-        self.perform6(|fd| unsafe { sys::if_get_addr(fd, &mut iff) })?;
-        let addr = unsafe { *(&iff.ifr_ifru.ifru_addr as *const _ as *const sys::sockaddr_in6) };
-        Ipv6Addr::from(addr.sin6_addr.s6_addr)
-    }
-
-    #[throws]
     pub fn mtu(&self) -> i32 {
         let mut iff = self.ifreq()?;
         self.perform(|fd| unsafe { sys::if_get_mtu(fd, &mut iff) })?;
